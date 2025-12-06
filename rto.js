@@ -101,61 +101,125 @@ class RealTimeObserver {
         return rootMargin;
     }
     #addThresholdMarkers(target) {
+        console.log(target, this);
         const overlay = document.createElement("div");
-        overlay.classList.add("threshold-overlay");
+        overlay.classList.add("section-overlay");
         target.appendChild(overlay);
+        
+        const threshold = this.#options.threshold;
+        const thresholdOverlay = document.createElement("div");
+        thresholdOverlay.style.flexBasis = `${threshold * 100}%`;
+        thresholdOverlay.style.top = `${this.#rootMargin[0].value}%`;
 
-        let threshold = this.#options.threshold;
-        threshold = typeof threshold === "number" ? threshold : 0.5;
-        threshold = threshold ? threshold : 1;
-        const marker = document.createElement("div");
-        marker.classList.add("threshold-marker");
+        thresholdOverlay.classList.add("threshold-overlay");
+        overlay.appendChild(thresholdOverlay);
 
-        marker.style.setProperty("--threshold", threshold * 100 + "%");
-        marker.dataset.threshold = threshold;
-        overlay.appendChild(marker);
+        // Label explicatif pour le threshold
+        const thresholdLabel = document.createElement("span");
+        thresholdLabel.classList.add("threshold-label");
+        thresholdLabel.textContent = `Seuil: ${threshold * 100}% - Cette zone doit être dans la zone bleue pour déclencher le callback`;
+        thresholdOverlay.appendChild(thresholdLabel);
 
-        const overlayLabel = document.createElement("span");
-        overlayLabel.classList.add("overlay-label");
-        overlayLabel.textContent = `Élément observé`;
-        overlay.appendChild(overlayLabel);
-
-        const markerLabel = document.createElement("span");
-        markerLabel.classList.add("marker-label");
-        markerLabel.textContent = `Zone d'intersection: ${threshold * 100}%`;
-        marker.appendChild(markerLabel);
+        // Label pour l'info générale
+        const infoLabel = document.createElement("span");
+        infoLabel.classList.add("info-label");
+        infoLabel.textContent = `Élément observé - Intersection: 0%`;
+        overlay.appendChild(infoLabel);
     }
 
     #updateThresholdMarkers(target, intersectionRatio) {
-        const overlay = target.querySelector(".threshold-overlay");
+        const overlay = target.querySelector(".section-overlay");
+        const thresholdOverlay = target.querySelector(".threshold-overlay");
+        const infoLabel = target.querySelector(".info-label");
+        const ratioLabel = target.querySelector(".ratio-label");
+        const intersectionZone = target.querySelector(".intersection-zone");
+        const intersectionLabel = target.querySelector(".intersection-label");
+        const statusLabel = target.querySelector(".status-label");
+        const threshold = this.#options.threshold || 0;
+        
         if (overlay) {
-            overlay.style.borderColor = intersectionRatio > 0
-                ? "red"
-                : "rgba(255, 0, 0, 0.5)";
+            // Le contour de la section change de couleur selon le seuil
+            if (intersectionRatio >= threshold) {
+            } else if (intersectionRatio > 0) {
+                overlay.style.borderColor = "orange";
+                thresholdOverlay.style.backgroundColor = "rgba(255, 165, 0, 0.4)";
+                thresholdOverlay.style.borderColor = "orange";
+            } else {
+                overlay.style.borderColor = "rgba(255, 0, 0, 0.5)";
+                thresholdOverlay.style.backgroundColor = "rgba(128, 128, 128, 0.3)";
+                thresholdOverlay.style.borderColor = "rgba(128, 128, 128, 0.5)";
+            }
+        }
+        
+        // Met à jour le label d'info
+        if (infoLabel) {
+            const status = intersectionRatio >= threshold ? '✓ Callback déclenché' : 
+                          intersectionRatio > 0 ? `⊘ ${Math.round(intersectionRatio * 100)}% / ${threshold * 100}%` :
+                          '✕ Hors zone';
+            infoLabel.textContent = `Élément observé - Intersection: ${Math.round(intersectionRatio * 100)}% - ${status}`;
         }
 
-        const markers = target.querySelectorAll(".threshold-marker");
-        markers.forEach((marker) => {
-            const threshold = parseFloat(marker.dataset.threshold);
-            // marker.style.borderColor = intersectionRatio >= threshold ? 'green' : 'red';
-            marker.style.background = intersectionRatio >= threshold
-                ? "rgba(0, 255, 0, 0.3)"
-                : "rgba(255, 0, 0, 0.3)";
-        });
+        // Met à jour le label du ratio
+        if (ratioLabel) {
+            ratioLabel.textContent = `Visible: ${Math.round(intersectionRatio * 100)}%`;
+        }
+
+        // Met à jour la zone d'intersection pour montrer la portion visible
+        if (intersectionZone) {
+            const threshold = parseFloat(intersectionZone.dataset.threshold);
+            
+            // La hauteur représente la portion de l'élément qui est dans la zone bleue
+            intersectionZone.style.setProperty("--intersection-ratio", intersectionRatio);
+            
+            if (intersectionLabel) {
+                intersectionLabel.textContent = `Portion visible: ${Math.round(intersectionRatio * 100)}%`;
+            }
+            
+            // Couleur selon le seuil
+            if (intersectionRatio >= threshold) {
+                intersectionZone.style.background = "rgba(0, 255, 0, 0.4)";
+                intersectionZone.style.borderColor = "green";
+                intersectionZone.style.borderStyle = "solid";
+                
+                if (statusLabel) {
+                    statusLabel.textContent = `✓ Seuil atteint: ${Math.round(intersectionRatio * 100)}% ≥ ${threshold * 100}%`;
+                    statusLabel.style.backgroundColor = "rgba(0, 255, 0, 0.8)";
+                    statusLabel.style.color = "white";
+                }
+            } else {
+                intersectionZone.style.background = "rgba(255, 165, 0, 0.4)";
+                intersectionZone.style.borderColor = "orange";
+                intersectionZone.style.borderStyle = "dashed";
+                
+                if (statusLabel) {
+                    if (intersectionRatio > 0) {
+                        statusLabel.textContent = `⊘ ${Math.round(intersectionRatio * 100)}% < ${threshold * 100}%`;
+                        statusLabel.style.backgroundColor = "rgba(255, 165, 0, 0.8)";
+                    } else {
+                        statusLabel.textContent = `✕ Hors zone (seuil: ${threshold * 100}%)`;
+                        statusLabel.style.backgroundColor = "rgba(255, 0, 0, 0.8)";
+                    }
+                    statusLabel.style.color = "white";
+                }
+            }
+        }
     }
 
     #removeThresholdMarkers(target) {
-        const overlay = target.querySelector(".threshold-overlay");
+        const overlay = target.querySelector(".section-overlay");
         if (overlay) {
             overlay.remove();
         }
     }
 
     #handleIntersections(entries) {
-        entries.forEach((entry) => {
-            this.#callback(entry);
-            this.#updateThresholdMarkers(entry.target, entry.intersectionRatio);
-        });
+         if (this.#options.debug) {
+            entries.forEach((entry) => {
+                this.#updateThresholdMarkers(entry.target, entry.intersectionRatio);
+            });
+        }
+        // Appelle le callback avec toutes les entries, comme l'IntersectionObserver natif
+        this.#callback(entries, this);
     }
 
     #createViewport() {
@@ -196,8 +260,9 @@ class RealTimeObserver {
             return marginInPixels;
         });
 
-        const padding = 4;
-        // Applique les marges correctement (sans padding inutile)
+        const padding = 0;
+        // Applique les marges: rootMargin positif = étend vers l'extérieur = réduit top/left, augmente right/bottom
+        // Pour les positions CSS: top diminue (monte), right diminue (va à gauche), bottom diminue (descend), left diminue (va à droite)
         this.#rootMarginElement.style.top = `${margins[0] + padding}px`;
         this.#rootMarginElement.style.right = `${margins[1] + padding}px`;
         this.#rootMarginElement.style.bottom = `${margins[2] + padding}px`;
@@ -263,40 +328,83 @@ function addStyle() {
             border-radius: 3px;
             box-sizing: border-box;
             border-radius: 8px;
+            outline-offset: -2px;
 
         }
-        *:has(>.threshold-overlay){
+        *:has(>.section-overlay){
             position:relative
         }
-        .threshold-overlay{
+        .section-overlay{
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: 3px solid rgba(255, 0, 0, 0.3);
+            inset: 0px;
+            border: 3px dashed rgba(255, 0, 0, 0.3);
             background-color: rgba(255, 0, 0, 0.1);
             pointer-events: none;
             border-radius: 8px;
-            padding:4px
+            display: flex;
+            flex-direction: column;
         }
         
-        *[data-active="true"] .threshold-overlay{
-            background: rgba(0, 255, 0, 0.3);
-            border: 3px dashed green !important;
+        *[data-active="true"],
+        *.active,
+        *.visible{
+            .section-overlay{
+                background: rgba(0, 255, 0, 0.3);
+                border: 3px solid green !important;
+            }
         }
-        .threshold-marker{
+        .threshold-overlay {
+            background: rgba(99, 99, 99, 0.3);
+            border: 2px dashed gray;
+            pointer-events: none;
+            border-radius: 4px;
+            transition: background 0.2s ease-out, border-color 0.2s ease-out;
+            position: sticky;
+            top: 0;
+        }
+        
+        .threshold-label {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 11px;
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 4px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            font-weight: bold;
+            text-align: center;
+            max-width: 90%;
+            line-height: 1.4;
+        }
+        
+        .info-label {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            font-size: 11px;
+            color: white;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 4px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            font-weight: bold;
+        }
+        .intersection-zone {
             --padding: 4px;
+            --intersection-ratio: 0;
             position: absolute;
             left: var(--padding);
             width: calc(100% - (var(--padding) * 2));
-            height: calc(var(--threshold) - (var(--padding) * 2));
-            outline: 2px dashed red;
-            outline-offset: -4px;
-            background: rgba(255, 0, 0, 0.3);
-            top: var(--padding);
-            border-radius: 8px;
-
+            height: calc((100% - (var(--padding) * 2)) * var(--intersection-ratio));
+            border: 2px dashed orange;
+            background: rgba(255, 165, 0, 0.4);
+            border-radius: 4px;
+            min-height: 0;
+            transition: height 0.1s ease-out, background 0.2s ease-out, border-color 0.2s ease-out;
+            bottom: var(--padding);
         }
         .overlay-label {
             position: absolute;
@@ -313,14 +421,43 @@ function addStyle() {
 
         .marker-label {
             position: absolute;
-            top: 4px;
             right: 4px;
-            font-size: 12px;
+            font-size: 10px;
             color: white;
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(0, 0, 0, 0.7);
             padding: 2px 5px;
             border-radius: 3px;
             pointer-events: none;
+            font-weight: bold;
+        }
+        
+        .intersection-label {
+            top: 4px;
+        }
+        .ratio-label {
+            position: absolute;
+            bottom: 4px;
+            left: 4px;
+            font-size: 12px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 3px 6px;
+            border-radius: 3px;
+            pointer-events: none;
+            font-weight: bold;
+        }
+        .status-label {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            font-size: 12px;
+            color: white;
+            background: rgba(255, 0, 0, 0.8);
+            padding: 3px 6px;
+            border-radius: 3px;
+            pointer-events: none;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
         }
         .root_margin-label {
             position: absolute;
